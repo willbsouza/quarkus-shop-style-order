@@ -13,6 +13,9 @@ import javax.inject.Inject;
 @ApplicationScoped
 public class RabbitMQConsumer {
 
+    @Inject
+    private RabbitMQProducer rabbitMQProducer;
+
     private OrderRepository orderRepository;
 
     @Inject
@@ -30,5 +33,6 @@ public class RabbitMQConsumer {
         Order order = orderRepository.findById(new ObjectId(paymentOrderStatus.getOrderId()));
         order.setStatus(paymentOrderStatus.getStatus());
         orderRepository.update(order);
+        rabbitMQProducer.publishMessage(order);
     }
 }

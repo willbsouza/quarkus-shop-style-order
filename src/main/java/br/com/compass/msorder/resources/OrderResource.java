@@ -139,6 +139,7 @@ public class OrderResource {
         orderRepository.persist(order);
         rabbitMQProducer.publishMessage(builderSkuOrder(order));
         rabbitMQProducer.publishMessage(builderPaymentOrder(order));
+        rabbitMQProducer.publishMessage(order);
         return Response.status(201).entity(new OrderDto(order)).build();
     }
 
