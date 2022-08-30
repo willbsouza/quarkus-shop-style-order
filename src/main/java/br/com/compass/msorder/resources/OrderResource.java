@@ -3,10 +3,14 @@ package br.com.compass.msorder.resources;
 import br.com.compass.msorder.client.*;
 import br.com.compass.msorder.domain.model.*;
 import br.com.compass.msorder.domain.model.enums.Status;
+import br.com.compass.msorder.rabbitmq.RabbitMQProducer;
+import br.com.compass.msorder.rabbitmq.model.PaymentOrder;
+import br.com.compass.msorder.rabbitmq.model.SkuOrder;
 import br.com.compass.msorder.repository.OrderRepository;
 import br.com.compass.msorder.resources.dto.CartDto;
 import br.com.compass.msorder.resources.dto.OrderDto;
 import br.com.compass.msorder.resources.dto.OrderFormDto;
+import br.com.compass.msorder.resources.dto.PaymentDto;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import javax.inject.Inject;
@@ -48,16 +52,12 @@ public class OrderResource {
     private CatalogClient catalogClient;
 
     @Inject
+    private RabbitMQProducer rabbitMQProducer;
+
+    @Inject
     public OrderResource(OrderRepository orderRepository){
         this.orderRepository = orderRepository;
     }
-
-//    @POST
-//    public Response create(Order order){
-//        orderRepository.persist(order);
-//
-//        return Response.status(201).entity(order).build();
-//    }
 
     @GET
     public Response findAll(@QueryParam(value = "startDate") LocalDate startDate,
@@ -137,6 +137,26 @@ public class OrderResource {
         order.setTotal(total);
 
         orderRepository.persist(order);
+        rabbitMQProducer.publishMessage(builderSkuOrder(order));
+        rabbitMQProducer.publishMessage(builderPaymentOrder(order));
         return Response.status(201).entity(new OrderDto(order)).build();
+    }
+
+    private SkuOrder builderSkuOrder(Order order) {
+        SkuOrder skuOrder = new SkuOrder();
+        skuOrder.setOrderId(order.getId().toString());
+        skuOrder.setSkus(order.getCart());
+        return skuOrder;
+    }
+
+    private PaymentOrder builderPaymentOrder(Order order) {
+
+        PaymentOrder paymentOrder = new PaymentOrder();
+        PaymentDto paymentDto = new PaymentDto();
+        paymentDto.setId(order.getPayment().getId());
+        paymentDto.setInstallments(order.getInstallment().getAmount());
+        paymentOrder.setOrderId(order.getId().toString());
+        paymentOrder.setPayment(paymentDto);
+        return paymentOrder;
     }
 }
